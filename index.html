@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#123b35">
+<title>ChemSafe AI</title>
+<style>
+:root{--ink:#18332f;--green:#176b5b;--mint:#e8f4ef;--paper:#f6f8f6;--line:#d9e3de;--amber:#fff2d6;--red:#fde8e6}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:16px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+header{background:#123b35;color:white;padding:22px max(18px,env(safe-area-inset-left));}
+header h1{margin:0;font-size:26px}header p{margin:6px 0 0;color:#d8e9e2}
+nav{display:flex;gap:8px;overflow-x:auto;padding:12px;background:white;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+nav button{white-space:nowrap;border:1px solid var(--line);background:white;border-radius:22px;padding:10px 14px;color:var(--ink);font-weight:600}
+nav button.active{background:var(--green);color:white;border-color:var(--green)}
+main{max-width:900px;margin:auto;padding:18px 16px 42px}
+.card{background:white;border:1px solid var(--line);border-radius:16px;padding:16px;margin:12px 0;box-shadow:0 2px 8px #18332f0a}
+h2{margin:4px 0 12px;font-size:22px}h3{margin:4px 0 10px;font-size:17px}
+p{line-height:1.5}.muted{color:#61736e;font-size:14px}
+label{display:block;font-weight:650;margin:12px 0 6px}
+input,select,textarea{width:100%;padding:12px;border:1px solid #bdccc5;border-radius:10px;background:white;font:inherit;color:var(--ink)}
+textarea{min-height:82px;resize:vertical}
+button.primary{background:var(--green);color:white;border:0;border-radius:10px;padding:12px 16px;font-weight:700;font-size:15px;margin-top:12px}
+button.secondary{background:var(--mint);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 13px;font-weight:650;margin:6px 6px 0 0}
+.notice{padding:13px;border-radius:12px;background:var(--amber);margin:12px 0;line-height:1.45}
+.danger{background:var(--red)}.good{background:var(--mint)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+.metric{font-size:25px;font-weight:750}.result{border-top:1px solid var(--line);padding:12px 0}
+.hidden{display:none!important}.tag{display:inline-block;background:var(--mint);padding:4px 8px;border-radius:20px;font-size:12px}
+footer{padding:18px;color:#61736e;text-align:center;font-size:12px}
+@media(min-width:700px){main{padding-top:26px}.card{padding:20px}}
+</style>
+</head>
+<body>
+<header><h1>🧪 ChemSafe AI</h1><p>Chemical Safety Assistant · iPad-friendly prototype</p></header>
+<nav id="nav"></nav>
+<main id="app"></main>
+<footer>Educational prototype · Local data is stored in this browser on this iPad.</footer>
+<script>
+const starter=[
+ {id:"c1",name:"Hydrochloric acid",formula:"HCl",cas:"7647-01-0",notes:""},
+ {id:"c2",name:"Sulfuric acid",formula:"H₂SO₄",cas:"7664-93-9",notes:""},
+ {id:"c3",name:"Sodium hydroxide",formula:"NaOH",cas:"1310-73-2",notes:""},
+ {id:"c4",name:"Methanol",formula:"CH₃OH",cas:"67-56-1",notes:""},
+ {id:"c5",name:"Sodium hypochlorite",formula:"NaClO",cas:"7681-52-9",notes:""}
+];
+const defaultData={chemicals:starter,safety:[],compat:[]};
+let db;try{db=JSON.parse(localStorage.getItem("chemsafe_ipad_db"))||structuredClone(defaultData)}catch(e){db=structuredClone(defaultData)}
+let page="Home";
+const pages=["Home","Chemical Search","Hazard Identification","PPE & Handling","Compatibility","Emergency Response","Manage Data","Assistant"];
+function save(){localStorage.setItem("chemsafe_ipad_db",JSON.stringify(db))}
+function esc(s=""){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function latest(id){return db.safety.filter(x=>x.chemicalId===id).slice(-1)[0]}
+function chem(id){return db.chemicals.find(x=>x.id===id)}
+function options(){return db.chemicals.map(c=>`<option value="${esc(c.id)}">${esc(c.name)} (${esc(c.formula||"formula n/a")}) · ${esc(c.cas||"CAS n/a")}</option>`).join("")}
+function field(label,key,placeholder="",area=false){return `<label>${label}</label>${area?`<textarea name="${key}" placeholder="${placeholder}"></textarea>`:`<input name="${key}" placeholder="${placeholder}">`}`}
+function nav(){document.getElementById("nav").innerHTML=pages.map(p=>`<button class="${p===page?'active':''}" onclick="go('${p}')">${p}</button>`).join("")}
+function go(p){page=p;render()}
+function source(r){return `<p class="muted">Source: ${esc(r.sourceTitle||"Not entered")} · SDS revision: ${esc(r.revision||"Not entered")}${r.sourceUrl?`<br><a href="${esc(r.sourceUrl)}" target="_blank" rel="noopener">Open source document</a>`:""}</p>`}
+function render(){
+ nav();const a=document.getElementById("app");
+ if(page==="Home"){
+ a.innerHTML=`<h2>Welcome to ChemSafe AI</h2><p>A small, local tool for organizing chemical identity and product-specific safety information from Safety Data Sheets (SDS).</p>
+ <div class="grid"><div class="card"><div class="metric">${db.chemicals.length}</div><div class="muted">Chemicals</div></div><div class="card"><div class="metric">${db.safety.length}</div><div class="muted">SDS records</div></div><div class="card"><div class="metric">${db.compat.length}</div><div class="muted">Compatibility records</div></div></div>
+ <div class="notice">The five starter entries contain identity information only. No hazard, PPE, compatibility, or emergency advice has been fabricated. Add information from the current SDS for the exact supplier product and concentration before using the other sections.</div>
+ <div class="grid">${pages.slice(1).map(p=>`<div class="card"><h3>${p}</h3><p class="muted">${({ "Chemical Search":"Find a chemical by name, formula, or CAS.","Hazard Identification":"Display hazards you have entered from an SDS.","PPE & Handling":"Review recorded PPE, handling, and storage details.","Compatibility":"Look up a documented pairwise assessment.","Emergency Response":"Retrieve entered first-aid or spill information.","Manage Data":"Add chemicals, SDS data, and sourced compatibility records.","Assistant":"Search only the information stored in your local database."})[p]}</p><button class="secondary" onclick="go('${p}')">Open</button></div>`).join("")}</div>`;
+ }
+ if(page==="Chemical Search"){
+ a.innerHTML=`<h2>🔍 Chemical Search</h2><label>Search name, formula, or CAS number</label><input id="query" placeholder="e.g. Methanol, CH3OH, 67-56-1" oninput="searchChem()"><div id="hits"></div>`;
+ }
+ if(page==="Hazard Identification"||page==="PPE & Handling"){
+ let isHaz=page==="Hazard Identification";
+ a.innerHTML=`<h2>${isHaz?"⚠️ Hazard Identification":"🥽 PPE & Handling"}</h2><label>Select chemical</label><select id="pick" onchange="showRecord()">${options()}</select><div id="record"></div>`;
+ showRecord();
+ }
+ if(page==="Compatibility"){
+ a.innerHTML=`<h2>🧪 Compatibility Checker</h2><div class="notice danger">A missing record means UNKNOWN, not compatible. Do not mix or co-store chemicals based on this prototype.</div><div class="grid"><div><label>Chemical A</label><select id="ca">${options()}</select></div><div><label>Chemical B</label><select id="cb">${options()}</select></div></div><button class="primary" onclick="checkComp()">Check recorded assessment</button><div id="compResult"></div>`;
+ }
+ if(page==="Emergency Response"){
+ a.innerHTML=`<h2>🚨 Emergency Response</h2><div class="notice danger">If an exposure, fire, or release is happening now, follow your institution's emergency plan and contact local emergency responders. Do not delay to use this app.</div><label>Chemical</label><select id="epick">${options()}</select><label>Scenario</label><select id="route"><option>Skin contact</option><option>Eye contact</option><option>Inhalation</option><option>Ingestion</option><option>Chemical spill</option></select><button class="primary" onclick="emergency()">Find stored information</button><div id="emResult"></div>`;
+ }
+ if(page==="Manage Data") manage();
+ if(page==="Assistant"){
+ a.innerHTML=`<h2>🤖 ChemSafe Assistant</h2><p>This is a database lookup assistant, not a generative AI model. It only returns saved information and will not guess when information is missing.</p><label>Your question</label><textarea id="question" placeholder="e.g. What PPE is recorded for methanol?"></textarea><button class="primary" onclick="ask()">Ask</button><div id="answer"></div>`;
+ }
+}
+function searchChem(){let q=document.getElementById("query").value.toLowerCase();let hits=db.chemicals.filter(c=>(c.name+" "+c.formula+" "+c.cas+" "+c.notes).toLowerCase().includes(q));document.getElementById("hits").innerHTML=hits.map(c=>`<div class="card"><h3>${esc(c.name)}</h3><p>Formula: ${esc(c.formula||"Not recorded")}<br>CAS: ${esc(c.cas||"Not recorded")}</p><p class="muted">${latest(c.id)?"SDS record available":"No product-specific safety record entered"}</p></div>`).join("")||(q?"<p>No matches found. Add the chemical under Manage Data.</p>":"")}
+function showRecord(){
+ let id=document.getElementById("pick").value,r=latest(id),el=document.getElementById("record");
+ if(!r){el.innerHTML='<div class="notice">No product-specific SDS record is stored. Do not assume the chemical is safe. Enter the exact product SDS under Manage Data.</div>';return}
+ if(page==="Hazard Identification")el.innerHTML=`<div class="card"><h3>${esc(r.product||chem(id).name)}</h3><p>Concentration: ${esc(r.concentration||"Not specified")} · Supplier: ${esc(r.supplier||"Not specified")}</p><b>GHS classification</b><p>${esc(r.ghs||"Not recorded")}</p><b>Signal word</b><p>${esc(r.signal||"Not recorded")}</p><b>Hazard statements</b><p>${esc(r.hazards||"Not recorded")}</p><b>Precautionary statements</b><p>${esc(r.precautions||"Not recorded")}</p>${source(r)}</div>`;
+ else el.innerHTML=`<div class="card">${[["Gloves","gloves"],["Eye / face protection","eyes"],["Body protection","body"],["Ventilation","vent"],["Handling and storage","storage"]].map(([t,k])=>`<b>${t}</b><p>${esc(r[k]||"Not recorded — verify in the exact SDS and local risk assessment.")}</p>`).join("")}${source(r)}</div>`;
+}
+function checkComp(){let a=document.getElementById("ca").value,b=document.getElementById("cb").value,el=document.getElementById("compResult");if(a===b){el.innerHTML='<p class="notice">Select two different chemicals.</p>';return}let r=db.compat.slice().reverse().find(x=>(x.a===a&&x.b===b)||(x.a===b&&x.b===a));if(!r){el.innerHTML='<div class="notice danger"><b>UNKNOWN</b> — no verified compatibility record is stored for this pair.</div>';return}el.innerHTML=`<div class="card"><h3>${esc(r.status)}</h3><p>${esc(r.explanation)}</p><b>Conditions / scope</b><p>${esc(r.conditions||"Not specified")}</p><p class="muted">Source: ${esc(r.sourceTitle)} ${r.sourceUrl?`· <a href="${esc(r.sourceUrl)}" target="_blank">Open source</a>`:""}</p></div>`}
+function emergency(){let id=document.getElementById("epick").value,route=document.getElementById("route").value,r=latest(id),key={"Skin contact":"skin","Eye contact":"eye","Inhalation":"inhale","Ingestion":"ingest","Chemical spill":"spill"}[route],el=document.getElementById("emResult");if(!r||!r[key]){el.innerHTML='<div class="notice">No matching product-specific instruction is stored. Consult the exact product SDS (Section 4 for first aid; Section 6 for accidental release) and institutional procedures.</div>';return}el.innerHTML=`<div class="card"><h3>${route}</h3><p>${esc(r[key])}</p>${source(r)}</div>`}
+function manage(){
+ document.getElementById("app").innerHTML=`<h2>🗂️ Manage Data</h2><div class="notice">Only enter details taken from the current SDS for the exact product and concentration. Record the source title and revision date so the information is traceable.</div>
+ <div class="card"><h3>Add chemical</h3><form id="chemForm">${field("Chemical name *","name","e.g. Ethanol")}${field("Formula","formula","C₂H₅OH")}${field("CAS number","cas","64-17-5")}${field("Identity notes","notes","")}<button class="primary">Save chemical</button></form></div>
+ <div class="card"><h3>Add SDS safety record</h3><form id="sdsForm"><label>Chemical</label><select name="chemicalId">${options()}</select>
+ ${field("Exact product name","product")}${field("Concentration / grade","concentration")}${field("Supplier / manufacturer","supplier")}${field("SDS revision date *","revision","YYYY-MM-DD")}${field("Source title *","sourceTitle","Supplier Safety Data Sheet")}${field("Source URL","sourceUrl","https://")}
+ <h3>SDS Section 2 — Hazards</h3>${field("GHS classification","ghs","",true)}${field("Signal word","signal","Danger / Warning / not stated")}${field("Hazard statements (H-codes)","hazards","",true)}${field("Precautionary statements (P-codes)","precautions","",true)}
+ <h3>SDS Sections 7 and 8 — PPE / handling</h3>${field("Gloves","gloves","",true)}${field("Eye / face protection","eyes","",true)}${field("Body protection","body","",true)}${field("Ventilation / engineering controls","vent","",true)}${field("Handling and storage","storage","",true)}
+ <h3>SDS Sections 4 and 6 — Emergency information</h3>${field("Skin contact first aid","skin","",true)}${field("Eye contact first aid","eye","",true)}${field("Inhalation first aid","inhale","",true)}${field("Ingestion first aid","ingest","",true)}${field("Spill response","spill","",true)}
+ <button class="primary">Save SDS record</button></form></div>
+ <div class="card"><h3>Add compatibility record</h3><form id="compForm"><label>Chemical A</label><select name="a">${options()}</select><label>Chemical B</label><select name="b">${options()}</select><label>Assessment</label><select name="status"><option>Incompatible</option><option>Condition-dependent</option><option>No incompatibility identified in cited source</option></select>${field("Source-based explanation *","explanation","",true)}${field("Conditions / scope (e.g. mixing vs storage)","conditions","",true)}${field("Source title *","sourceTitle","")}${field("Source URL","sourceUrl","https://")}<button class="primary">Save compatibility record</button></form></div>
+ <div class="card"><h3>Backup / restore your data</h3><p class="muted">Export a JSON backup to Files. Keep it somewhere safe. Importing replaces the data currently stored in this browser.</p><button class="secondary" onclick="exportData()">Export backup</button><label>Import backup JSON</label><input type="file" id="importFile" accept=".json,application/json"><button class="secondary" onclick="importData()">Import backup</button></div>
+ <div class="card"><h3>Database entries</h3>${db.chemicals.map(c=>`<p>${esc(c.name)} · CAS ${esc(c.cas||"not entered")} · ${db.safety.filter(r=>r.chemicalId===c.id).length} SDS record(s)</p>`).join("")}</div>`;
+ document.getElementById("chemForm").onsubmit=e=>{e.preventDefault();let f=new FormData(e.target),name=f.get("name").trim();if(!name){alert("Chemical name is required.");return}db.chemicals.push({id:"c"+Date.now(),name,formula:f.get("formula"),cas:f.get("cas"),notes:f.get("notes")});save();alert("Chemical saved.");render()};
+ document.getElementById("sdsForm").onsubmit=e=>{e.preventDefault();let f=Object.fromEntries(new FormData(e.target));if(!f.sourceTitle.trim()||!f.revision.trim()){alert("Source title and SDS revision date are required.");return}db.safety.push(f);save();alert("SDS record saved.");render()};
+ document.getElementById("compForm").onsubmit=e=>{e.preventDefault();let f=Object.fromEntries(new FormData(e.target));if(f.a===f.b||!f.explanation.trim()||!f.sourceTitle.trim()){alert("Choose two different chemicals and enter an explanation and source.");return}db.compat.push(f);save();alert("Compatibility record saved.");render()};
+}
+function ask(){let q=document.getElementById("question").value.toLowerCase(),c=db.chemicals.find(c=>[c.name,c.formula,c.cas].some(x=>x&&q.includes(x.toLowerCase()))),el=document.getElementById("answer");if(!c){el.innerHTML='<div class="notice">I could not identify a chemical. Include its name, formula, or CAS number.</div>';return}let r=latest(c.id);if(!r){el.innerHTML='<div class="notice">No SDS-derived safety record is stored for '+esc(c.name)+'. I cannot provide a verified answer.</div>';return}let pairs=[["hazard","Hazards",r.hazards],["ghs","GHS classification",r.ghs],["ppe","Gloves",r.gloves],["glove","Gloves",r.gloves],["eye","Eye protection",r.eyes],["vent","Ventilation",r.vent],["skin","Skin first aid",r.skin],["inhal","Inhalation first aid",r.inhale],["ingest","Ingestion first aid",r.ingest],["spill","Spill response",r.spill]];let found=pairs.filter(([k])=>q.includes(k));if(!found.length){el.innerHTML='<div class="notice">I found '+esc(c.name)+' but could not identify the topic. Ask about hazards, GHS, PPE, gloves, eye protection, ventilation, skin, inhalation, ingestion, or spills.</div>';return}el.innerHTML='<div class="card"><h3>'+esc(c.name)+'</h3>'+found.map(([k,t,v])=>`<b>${t}</b><p>${esc(v||"Not recorded")}</p>`).join("")+source(r)+'</div>'}
+function exportData(){let blob=new Blob([JSON.stringify(db,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="chemsafe-backup.json";a.click();URL.revokeObjectURL(url)}
+function importData(){let file=document.getElementById("importFile").files[0];if(!file){alert("Choose a backup JSON file first.");return}let reader=new FileReader();reader.onload=()=>{try{let x=JSON.parse(reader.result);if(!Array.isArray(x.chemicals)||!Array.isArray(x.safety)||!Array.isArray(x.compat))throw Error();db=x;save();alert("Backup imported.");render()}catch(e){alert("That file does not look like a ChemSafe backup.")}};reader.readAsText(file)}
+render();
+</script>
+</body></html>
